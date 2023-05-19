@@ -3,12 +3,9 @@ const configStoreFront = require('./configStoreFront');
 const { readFileSync } = require('fs');
 const path = require('path');
 const fs = require('fs');
-const { MultiBar, Presets } = require('cli-progress');
-
-// Create a new progress bar instance
-const progressBar = new MultiBar(Presets.shades_grey);
 
 const spaceId = configStoreFront.spacesId;
+
 const csvFilesPath = 'csvs'; // Replace with the actual path to the folder containing the CSV files
 
 const getCsvFilePaths = async (csvFilesPath) => {
@@ -42,7 +39,9 @@ const createDataSource = async (name, slug) => {
     console.error('Error creating data source:', JSON.stringify(error));
   }
 };
-const importCSVToDataSources = async (dataSourceItem, progressBar) => {
+// Get the CSV file paths
+
+const importCSVToDataSources = async (dataSourceItem) => {
   const csvFilePaths = await getCsvFilePaths(csvFilesPath);
   const filePath = csvFilePaths[dataSourceItem.slug];
   const csvData = readFileSync(filePath, 'utf8');
@@ -51,27 +50,15 @@ const importCSVToDataSources = async (dataSourceItem, progressBar) => {
     datasource_id: dataSourceItem.id
   };
 
-  // Create a new progress bar for the CSV import operation
-  const progress = progressBar.create(100, 0);
 
   try {
-    const response = await instanceAxios.post(`/spaces/${spaceId}/datasource_entries/import`, requestData, {
-      onUploadProgress: (progressEvent) => {
-        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-        progress.update(percentCompleted);
-      }
-    });
-
-    progress.stop(); // Stop and remove the progress bar once the import is complete
-
+    const response = await instanceAxios.post(`/spaces/${spaceId}/datasource_entries/import`, requestData);
     console.log(`Success:`, JSON.stringify(response));
   } catch (error) {
-    progress.stop(); // Stop and remove the progress bar on error
     console.log(`Error import:`, JSON.stringify(error));
     throw error;
   }
 };
-
 
 const createAndImportDataSources = async (name, slug) => {
   try {
