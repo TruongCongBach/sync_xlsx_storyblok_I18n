@@ -29,12 +29,10 @@ const getCsvFilePaths = async (csvFilesPath) => {
 
 const createDataSource = async (name, slug) => {
   try {
-    const result = await instanceAxios.post(`/spaces/${spaceId}/datasources`, {
+    return await instanceAxios.post(`/spaces/${spaceId}/datasources`, {
       name: name,
       slug: slug
     });
-    console.log(`Data source with name: ${name} slug: ${slug} created.`);
-    return result;
   } catch (error) {
     console.error('Error creating data source:', JSON.stringify(error));
   }
