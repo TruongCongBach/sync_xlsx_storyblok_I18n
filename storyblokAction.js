@@ -1,10 +1,9 @@
 const instanceAxios = require('./instanceAxios');
-const configStoreFront = require('./configStoreFront');
 const { readFileSync } = require('fs');
 const path = require('path');
 const fs = require('fs');
 
-const spaceId = configStoreFront.spacesId;
+
 
 const csvFilesPath = 'csvs'; // Replace with the actual path to the folder containing the CSV files
 
@@ -27,7 +26,7 @@ const getCsvFilePaths = async (csvFilesPath) => {
   return csvFilePaths;
 }
 
-const createDataSource = async (name, slug) => {
+const createDataSource = async (name, slug, spaceId) => {
   try {
     return await instanceAxios.post(`/spaces/${spaceId}/datasources`, {
       name: name,
@@ -37,9 +36,8 @@ const createDataSource = async (name, slug) => {
     console.error('Error creating data source:', JSON.stringify(error));
   }
 };
-// Get the CSV file paths
 
-const importCSVToDataSources = async (dataSourceItem) => {
+const importCSVToDataSources = async (dataSourceItem, spaceId) => {
   const csvFilePaths = await getCsvFilePaths(csvFilesPath);
   const filePath = csvFilePaths[dataSourceItem.slug];
   const csvData = readFileSync(filePath, 'utf8');
@@ -58,19 +56,19 @@ const importCSVToDataSources = async (dataSourceItem) => {
   }
 };
 
-const createAndImportDataSources = async (name, slug) => {
+const createAndImportDataSources = async (name, slug, spaceId) => {
   try {
-    const resultCreate = await createDataSource(name, slug);
-    console.log(`Data source with name: ${name} slug: ${slug} created.`);
+    const resultCreate = await createDataSource(name, slug, spaceId);
+    console.log(`Data source with name: ${name} slug: /${slug}/ created.`);
 
-    await importCSVToDataSources({name, slug, id: resultCreate.datasource.id});
+    await importCSVToDataSources({name, slug, id: resultCreate.datasource.id}, spaceId);
     console.log(`Imported data for DataSource: ${name}`);
   } catch (error) {
     console.error('Error creating import data source:', JSON.stringify(error));
   }
 };
 
-const getStoryblokDataSources = async () => {
+const getStoryblokDataSources = async (spaceId) => {
   try {
     const response = await instanceAxios.get(`/spaces/${spaceId}/datasources`);
     return response.datasources;
@@ -80,21 +78,20 @@ const getStoryblokDataSources = async () => {
   }
 };
 
-const deleteAndRecreateDataSource = async ({ id: dataSourceId, name, slug }) => {
+const deleteAndRecreateDataSource = async ({ id: dataSourceId, name, slug }, spaceId) => {
   try {
     await instanceAxios.delete(`/spaces/${spaceId}/datasources/${dataSourceId}`);
     console.log(`Data source with ID ${dataSourceId} deleted.`);
 
-    await createAndImportDataSources(name, slug);
+    await createAndImportDataSources(name, slug, spaceId);
 
   } catch (error) {
     console.error('Error deleting data source:', JSON.stringify(error));
   }
 };
 
-// Remaining code...
 
-const checkAndProcessDataSources = async () => {
+const checkAndProcessDataSources = async (spaceId) => {
   const dataSourcesDefault = ['en', 'es', 'de', 'fr', 'nl', 'it'].map(language => {
     return {
       name: 'locales ' + language.toUpperCase(),
@@ -102,28 +99,54 @@ const checkAndProcessDataSources = async () => {
     };
   });
 
-  const dataSources = await getStoryblokDataSources();
+  const dataSources = await getStoryblokDataSources(spaceId);
 
   if (!dataSources.length) {
     console.log('No existing data sources found. Creating and importing default data sources...');
     for (const dataSource of dataSourcesDefault) {
       const { name, slug } = dataSource;
-      await createAndImportDataSources(name, slug);
+      await createAndImportDataSources(name, slug, spaceId);
     }
     console.log('Default data sources created and imported successfully.');
+    return
   }
 
 
+  // deleteAndRecreateDataSource
+  // for (const dataSource of dataSources) {
+  //   const { slug } = dataSource;
+  //   if (slug.match(/^locales-[a-z]{2}(-[a-z]{2})?$/)) {
+  //     console.log(`Deleting and recreating data source: ${dataSource.name} (${dataSource.slug})`);
+  //     await deleteAndRecreateDataSource(dataSource, spaceId);
+  //     console.log(`Data source ${dataSource.name} (${dataSource.slug}) recreated and imported successfully.`);
+  //   }
+  // }
+
+
+  //only import
   for (const dataSource of dataSources) {
-    const { slug } = dataSource;
+    const { slug, name, id } = dataSource;
     if (slug.match(/^locales-[a-z]{2}(-[a-z]{2})?$/)) {
-      console.log(`Deleting and recreating data source: ${dataSource.name} (${dataSource.slug})`);
-      await deleteAndRecreateDataSource(dataSource);
-      console.log(`Data source ${dataSource.name} (${dataSource.slug}) recreated and imported successfully.`);
+      console.log(`Deleting and recreating data source: ${name} (${slug})`);
+      await importCSVToDataSources({name, slug, id}, spaceId);
+      console.log(`Data source ${name} (${slug}) imported successfully.`);
     }
   }
 
   console.log('Data source check and processing completed.');
 };
 
-checkAndProcessDataSources();
+
+const spacesFile = require('./space.json')
+
+const run =  async () => {
+  for (const space of spacesFile.spaces) {
+    console.log('======== START =====');
+    console.log(space.name);
+    await checkAndProcessDataSources(space.id);
+    console.log('======== END ========');
+    console.log('=====================');
+  }
+}
+
+run()
