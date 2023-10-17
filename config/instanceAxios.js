@@ -1,9 +1,10 @@
 const axios = require('axios')
-const configStoreFront  = require('./configStoreFront');
+const storyblokConfig  = require('../storyblok.config');
+const { baseURL } = require('./index')
 
 const instanceAxios = axios.create({
   timeout: 100000,
-  baseURL: "https://app.storyblok.com/v1",
+  baseURL: baseURL,
 })
 
 const headers = {
@@ -25,11 +26,13 @@ const headers = {
 instanceAxios.interceptors.request.use(function (config) {
   config.headers = {
     ...headers,
-    authorization : configStoreFront.authorization
+    authorization : storyblokConfig.authorization
   }
   return config
 })
+
 instanceAxios.interceptors.response.use(function (response) {
   return response.data
 })
+
 module.exports = instanceAxios
